@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
             continue;
         /* Print its length */
         printf("Jacked a packet with length of [%d]\n", header->len);
-        printPacket(packet,header->len);
+        analEthernet(packet,header->len);
         printf("\n");
         /* And close the session */
     }
@@ -100,4 +100,45 @@ void printPacket(u_char* packet,int len)
             printf(".");
     }
     printf("\n\n");
+}
+
+
+int comp(u_char* a, u_long b,int len){
+    int i;
+    for ( i=0; i < len ; i++){
+        if (*(a+i) != ( b/ (int)(pow(256,len-i-1)) ) % 256)
+            return -1;
+    }
+    return 0;
+}
+
+int analEthernet(u_char* packet, struct pcap_pkthdr* header)
+{
+    u_char ethHead[ETHERNET_HEAD_SIZE],etherType[2];
+    int i;
+    for ( i=0; i < ETHERNET_HEAD_SIZE; i++)
+        ethHead[i] = *(packet+i);
+
+    for (i=0; i< ETHER_TYPE ;i++)
+        etherType[i]=ethHead[i+(ETHERNET_HEAD_SIZE-ETHER_TYPE)];
+
+    printf("##########     Ethernet Frame Analysis     ##########\n");
+    printf("Destination MAC ADDRESS ");
+    for ( i=0; i < MAC_ADDR_LEN ; i++)
+        printf(":%02x",ethHead[i]);
+
+    printf("\nSource MAC ADDRESS ");
+    for ( i=MAC_ADDR_LEN; i< 2*MAC_ADDR_LEN ; i++)
+        printf(":%02x",ethHead[i]);
+    printf("\n");\
+
+    if (!comp(etherType,IP_TYPE,2)){
+        printf("Packet Type : IPv4\n");
+
+    }
+    else
+        printf("Unknown packet type\n");
+    printf("\n");
+
+    return 0;
 }
