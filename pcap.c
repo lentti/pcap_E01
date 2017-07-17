@@ -145,7 +145,11 @@ void analTcpPacket(u_char* tcpPacket, int len)
     printf("Header Length : %d bytes\n",(tcpPacket[12]/16)*4);
     printf("CheckSum : 0x%02x%02x\n",tcpPacket[16],tcpPacket[17]);
     if (len-(tcpPacket[12]/16)*4 != 0){
+<<<<<<< HEAD
+        printf("##########     HTML     ##########\n");
+=======
         printf("##########     HTML     ##########\n",len-(tcpPacket[12]/16)*4);
+>>>>>>> 82a9cac55b4cc3c81845fe7aed1991d516293c00
         printPacket(tcpPacket+(tcpPacket[12]/16)*4,len-(tcpPacket[12]/16)*4);
     }
 }
@@ -175,7 +179,11 @@ void printPacket(u_char* packet,int len)
         if ( i % 8 ==0 )
             printf ("  ");
     }
+<<<<<<< HEAD
+    for ( i=(len/16)*16;i<len;i++ ){
+=======
     for ( int i=(len/16)*16;i<len;i++ ){
+>>>>>>> 82a9cac55b4cc3c81845fe7aed1991d516293c00
         if (i%8 == 0 && i%16 != 0)
             printf("  ");
         if (isprint(*(packet+i)))
