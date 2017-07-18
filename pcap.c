@@ -1,24 +1,18 @@
 #include <pcap.h>
 #include <stdio.h>
 #include <ctype.h>
-#include <math.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/tcp.h>
 #include <net/ethernet.h>
 #include <arpa/inet.h>
 
-#define ETHERNET_HEAD_SIZE (14)
-#define MAC_ADDR_LEN (6)
-#define ETHER_TYPE (2)
-#define IP_TYPE (0x0800)
 
-int analEthernet(u_char* packet, struct pcap_pkthdr* header);
-int comp(u_char* a, u_long b,int len);
+void anal_ethernet(const u_char* packet);
+void anal_ip(const u_char* packet);
 void printPacket(u_char* packet, int len);
-void analIpPacket (u_char* ipPacket, int len);
-void analTcpPacket ( u_char* tcpPacket, int len);
 
 
 int main(int argc,char* argv[])
@@ -64,9 +58,9 @@ int main(int argc,char* argv[])
         if ( retValue ==0 )
             continue;
         /* Print its length */
-        printf("Jacked a packet with length of [%d (0x%x)]\n", header->len, header->len);
-        analEthernet(packet,header);
-
+        printf("##########     Total packet length : [%d (0x%x)]     ##########\n", header->len, header->len);
+        anal_ethernet(packet);
+        printf("\n");
         //        printPacket(packet, header->len);
         /* And close the session */
     }
@@ -74,77 +68,36 @@ int main(int argc,char* argv[])
     return 0;
 }
 
-int comp(u_char* a, u_long b,int len){
-    int i;
-    for ( i=0; i < len ; i++){
-        if (*(a+i) != ( b/ (int)(pow(256,len-i-1)) ) % 256)
-            return -1;
-    }
-    return 0;
-}
-
-int analEthernet(u_char* packet, struct pcap_pkthdr* header)
+void anal_ethernet(const u_char* packet)
 {
-    u_char ethHead[ETHERNET_HEAD_SIZE],etherType[2];
+    struct ether_header *etherHead;
     int i;
-    for ( i=0; i < ETHERNET_HEAD_SIZE; i++)
-        ethHead[i] = *(packet+i);
-
-    for (i=0; i< ETHER_TYPE ;i++)
-        etherType[i]=ethHead[i+(ETHERNET_HEAD_SIZE-ETHER_TYPE)];
-
-    printf("##########     Ethernet Frame Analysis     ##########\n");
-    printf("Destination MAC ADDRESS ");
-    for ( i=0; i < MAC_ADDR_LEN ; i++)
-        printf(":%02x",ethHead[i]);
-
-    printf("\nSource MAC ADDRESS ");
-    for ( i=MAC_ADDR_LEN; i< 2*MAC_ADDR_LEN ; i++)
-        printf(":%02x",ethHead[i]);
-    printf("\n");\
-
-    if (!comp(etherType,IP_TYPE,2)){
-        printf("Packet Type : IPv4\n");
-
-        u_char *ipPacket = (u_char*) calloc(header->len - ETHERNET_HEAD_SIZE, sizeof(u_char));
-        for ( i =0; i< (header->len - ETHERNET_HEAD_SIZE); i++)
-            ipPacket[i] = packet[i+ETHERNET_HEAD_SIZE];
-        analIpPacket(ipPacket,header->len - ETHERNET_HEAD_SIZE);
-
-    }
-    else
-        printf("Unknown packet type\n");
+    etherHead = (struct ether_header *) packet;
+    printf("##########     ETHERNET HEADER     ##########\n");
+    printf("Destination MAC address     ");
+    for (i=0; i<ETHER_ADDR_LEN;i++)
+        printf(":%02x",etherHead->ether_dhost[i]);
+    printf("\nSource MAC address          ");
+    for (i=0; i<ETHER_ADDR_LEN;i++)
+        printf(":%02x",etherHead->ether_shost[i]);
     printf("\n");
-
-    return 0;
+    if(ntohs(etherHead->ether_type)==ETHERTYPE_IP)
+        anal_ip(packet+ETHER_HDR_LEN);
 }
 
-void analIpPacket (u_char* ipPacket, int len)
+void anal_ip(const u_char *ip_packet)
 {
-    printf("##########     IP Frame Analysis     ##########\n");
-    printf("IP version : %d\n",ipPacket[0]/16);
-    printf("IP Header Length : %d\n",ipPacket[0]%16*4);
-    printf("Total Length : %d\n",ipPacket[2]*256+ipPacket[3]);
-    printf("TTL : %d\n",ipPacket[8]);
-    printf("Protocol : %d\n",ipPacket[9]);
-    printf("Header Checksum : 0x%x%x (%d)\n",ipPacket[10],ipPacket[11],ipPacket[10]*256+ipPacket[11]);
-    printf("Source IP : %d.%d.%d.%d\n",ipPacket[12],ipPacket[13],ipPacket[14],ipPacket[15]);
-    printf("Destination IP : %d.%d.%d.%d\n",ipPacket[16],ipPacket[17],ipPacket[18],ipPacket[19]);
-    //    printPacket(ipPacket, 20);
-    analTcpPacket(ipPacket+ipPacket[0]%16*4,len-ipPacket[0]%16*4);
-}
+    struct iphdr *ip_head;
+    ip_head = (struct iphdr *)ip_packet;
+    char src_ip[18],dst_ip[18];
+    inet_ntop(AF_INET,&(ip_head->saddr),src_ip,sizeof(src_ip));
+    inet_ntop(AF_INET,&(ip_head->daddr),dst_ip,sizeof(dst_ip));
 
-void analTcpPacket(u_char* tcpPacket, int len)
-{
-    printf("##########     TCP Frame Analysis     ##########\n");
-    printf("Source Port : %d\n",tcpPacket[0]*256+tcpPacket[1]);
-    printf("Destination Port : %d\n",tcpPacket[2]*256+tcpPacket[3]);
-    printf("Header Length : %d bytes\n",(tcpPacket[12]/16)*4);
-    printf("CheckSum : 0x%02x%02x\n",tcpPacket[16],tcpPacket[17]);
-    if (len-(tcpPacket[12]/16)*4 != 0){
-        printf("##########     HTML     ##########\n");
-        printPacket(tcpPacket+(tcpPacket[12]/16)*4,len-(tcpPacket[12]/16)*4);
-    }
+    printf("##########     IP HEADER     ##########\n");
+    printf("Source IP address           : %s\n",src_ip);
+    printf("Destination IP address      : %s\n",dst_ip);
+    printf("Total length                : %d\n",ntohs(ip_head->tot_len));
+    printf("Header length               : %d\n",ip_head->ihl*4);
 }
 
 void printPacket(u_char* packet,int len)
