@@ -1,8 +1,6 @@
 #include <pcap.h>
 #include <stdio.h>
 #include <ctype.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/tcp.h>
@@ -13,7 +11,7 @@
 void anal_ethernet(const u_char* packet);
 void anal_ip(const u_char* ip_packet);
 void anal_tcp(const u_char* tcp_packet, int tcp_packet_len);
-void printPacket(u_char* packet, int len);
+void printPacket(const u_char* packet, int len);
 
 
 int main(int argc,char* argv[])
@@ -26,7 +24,7 @@ int main(int argc,char* argv[])
     struct pcap_pkthdr *header;	/* The header that pcap gives us */
     const u_char *packet;		/* The actual packet */
 
-    if (argc == 1){
+    if (argc == 1){ // If no input argument
         /* Define the device */
         dev = pcap_lookupdev(errbuf);
         if (dev == NULL) {
@@ -40,7 +38,7 @@ int main(int argc,char* argv[])
             mask = 0;
         }
     }
-    else{
+    else{ // We have input argument(s)
         dev=argv[1];
     }
     /* Open the session in promiscuous mode */
@@ -76,10 +74,12 @@ void anal_ethernet(const u_char* packet)
     etherHead = (struct ether_header *) packet;
     printf("##########     ETHERNET HEADER     ##########\n");
     printf("Destination MAC address     ");
-    for (i=0; i<ETHER_ADDR_LEN;i++)
+    printf(": %02x",etherHead->ether_dhost[0]);
+    for (i=1; i<ETHER_ADDR_LEN;i++)
         printf(":%02x",etherHead->ether_dhost[i]);
     printf("\nSource MAC address          ");
-    for (i=0; i<ETHER_ADDR_LEN;i++)
+    printf(": %02x",etherHead->ether_shost[0]);
+    for (i=1; i<ETHER_ADDR_LEN;i++)
         printf(":%02x",etherHead->ether_shost[i]);
     printf("\n");
     if(ntohs(etherHead->ether_type)==ETHERTYPE_IP)
@@ -109,10 +109,16 @@ void anal_ip(const u_char *ip_packet)
 }
 
 void anal_tcp(const u_char* tcp_packet,int tcp_packet_len){
-    printf("%d\n",tcp_packet_len);
+    struct tcphdr* tcp_head;
+    tcp_head = (struct tcphdr*)tcp_packet;
+    printf("##########     TCP HEADER     ##########\n");
+    printf("TCP header length           : %d\n",tcp_head->doff*4);
+    printf("Source Port                 : %d\n",ntohs(tcp_head->source));
+    printf("Destination Port            : %d\n",ntohs(tcp_head->dest));
+    printPacket(tcp_packet+tcp_head->doff*4,tcp_packet_len-tcp_head->doff*4);
 }
 
-void printPacket(u_char* packet,int len)
+void printPacket(const u_char* packet,int len)
 {
     int i;
     for ( i=0; i < len ; i++ ){
@@ -145,6 +151,6 @@ void printPacket(u_char* packet,int len)
         else
             printf(".");
     }
-    printf("\n\n");
+    printf("\n");
 }
 
