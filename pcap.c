@@ -11,7 +11,8 @@
 
 
 void anal_ethernet(const u_char* packet);
-void anal_ip(const u_char* packet);
+void anal_ip(const u_char* ip_packet);
+void anal_tcp(const u_char* tcp_packet, int tcp_packet_len);
 void printPacket(u_char* packet, int len);
 
 
@@ -83,6 +84,8 @@ void anal_ethernet(const u_char* packet)
     printf("\n");
     if(ntohs(etherHead->ether_type)==ETHERTYPE_IP)
         anal_ip(packet+ETHER_HDR_LEN);
+    else
+        printf("This packet is not IP packet\n");
 }
 
 void anal_ip(const u_char *ip_packet)
@@ -98,6 +101,15 @@ void anal_ip(const u_char *ip_packet)
     printf("Destination IP address      : %s\n",dst_ip);
     printf("Total length                : %d\n",ntohs(ip_head->tot_len));
     printf("Header length               : %d\n",ip_head->ihl*4);
+    if ( ip_head->protocol == IPPROTO_TCP)
+        anal_tcp(ip_packet+ip_head->ihl*4,ntohs(ip_head->tot_len)-ip_head->ihl*4);
+    else
+        printf("This packet is not TCP packet\n");
+
+}
+
+void anal_tcp(const u_char* tcp_packet,int tcp_packet_len){
+    printf("%d\n",tcp_packet_len);
 }
 
 void printPacket(u_char* packet,int len)
