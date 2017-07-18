@@ -3,6 +3,11 @@
 #include <ctype.h>
 #include <math.h>
 #include <stdlib.h>
+#include <linux/if_ether.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <net/ethernet.h>
+#include <arpa/inet.h>
 
 #define ETHERNET_HEAD_SIZE (14)
 #define MAC_ADDR_LEN (6)
@@ -16,30 +21,32 @@ void analIpPacket (u_char* ipPacket, int len);
 void analTcpPacket ( u_char* tcpPacket, int len);
 
 
-int main()
+int main(int argc,char* argv[])
 {
     pcap_t *handle;			/* Session handle */
     char *dev;			/* The device to sniff on */
     char errbuf[PCAP_ERRBUF_SIZE];	/* Error string */
-    struct bpf_program fp;		/* The compiled filter */
-    char filter_exp[] = "port 80";	/* The filter expression */
     bpf_u_int32 mask;		/* Our netmask */
     bpf_u_int32 net;		/* Our IP */
     struct pcap_pkthdr *header;	/* The header that pcap gives us */
     const u_char *packet;		/* The actual packet */
-    int i;
 
-    /* Define the device */
-    dev = pcap_lookupdev(errbuf);
-    if (dev == NULL) {
-        fprintf(stderr, "Couldn't find default device: %s\n", errbuf);
-        return(2);
+    if (argc == 1){
+        /* Define the device */
+        dev = pcap_lookupdev(errbuf);
+        if (dev == NULL) {
+            fprintf(stderr, "Couldn't find default device: %s\n", errbuf);
+            return(2);
+        }
+        /* Find the properties for the device */
+        if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
+            fprintf(stderr, "Couldn't get netmask for device %s: %s\n", dev, errbuf);
+            net = 0;
+            mask = 0;
+        }
     }
-    /* Find the properties for the device */
-    if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
-        fprintf(stderr, "Couldn't get netmask for device %s: %s\n", dev, errbuf);
-        net = 0;
-        mask = 0;
+    else{
+        dev=argv[1];
     }
     /* Open the session in promiscuous mode */
     handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
@@ -47,22 +54,14 @@ int main()
         fprintf(stderr, "Couldn't open device %s: %s\n", dev, errbuf);
         return(2);
     }
-    /* Compile and apply the filter */
-    if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
-        fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
-        return(2);
-    }
-    if (pcap_setfilter(handle, &fp) == -1) {
-        fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
-        return(2);
-    }
+
     while (1){
         int retValue;
         /* Grab a packet */
         retValue = pcap_next_ex(handle, &header, &packet);
-
-        /* Check empty packet */
-        if ( header->len ==0 )
+        if ( retValue < 0 )
+            break;
+        if ( retValue ==0 )
             continue;
         /* Print its length */
         printf("Jacked a packet with length of [%d (0x%x)]\n", header->len, header->len);
@@ -122,7 +121,6 @@ int analEthernet(u_char* packet, struct pcap_pkthdr* header)
 
 void analIpPacket (u_char* ipPacket, int len)
 {
-    int i;
     printf("##########     IP Frame Analysis     ##########\n");
     printf("IP version : %d\n",ipPacket[0]/16);
     printf("IP Header Length : %d\n",ipPacket[0]%16*4);
@@ -138,18 +136,13 @@ void analIpPacket (u_char* ipPacket, int len)
 
 void analTcpPacket(u_char* tcpPacket, int len)
 {
-    int i;
     printf("##########     TCP Frame Analysis     ##########\n");
     printf("Source Port : %d\n",tcpPacket[0]*256+tcpPacket[1]);
     printf("Destination Port : %d\n",tcpPacket[2]*256+tcpPacket[3]);
     printf("Header Length : %d bytes\n",(tcpPacket[12]/16)*4);
     printf("CheckSum : 0x%02x%02x\n",tcpPacket[16],tcpPacket[17]);
     if (len-(tcpPacket[12]/16)*4 != 0){
-<<<<<<< HEAD
         printf("##########     HTML     ##########\n");
-=======
-        printf("##########     HTML     ##########\n",len-(tcpPacket[12]/16)*4);
->>>>>>> 82a9cac55b4cc3c81845fe7aed1991d516293c00
         printPacket(tcpPacket+(tcpPacket[12]/16)*4,len-(tcpPacket[12]/16)*4);
     }
 }
@@ -179,11 +172,7 @@ void printPacket(u_char* packet,int len)
         if ( i % 8 ==0 )
             printf ("  ");
     }
-<<<<<<< HEAD
-    for ( i=(len/16)*16;i<len;i++ ){
-=======
     for ( int i=(len/16)*16;i<len;i++ ){
->>>>>>> 82a9cac55b4cc3c81845fe7aed1991d516293c00
         if (i%8 == 0 && i%16 != 0)
             printf("  ");
         if (isprint(*(packet+i)))
