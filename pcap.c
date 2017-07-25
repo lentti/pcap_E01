@@ -92,9 +92,9 @@ void anal_ip(const u_char *ip_packet)
 {
     struct iphdr *ip_head;
     ip_head = (struct iphdr *)ip_packet;
-    char src_ip[18],dst_ip[18];
-    inet_ntop(AF_INET,&(ip_head->saddr),src_ip,sizeof(src_ip));
-    inet_ntop(AF_INET,&(ip_head->daddr),dst_ip,sizeof(dst_ip));
+    char src_ip[INET_ADDRSTRLEN],dst_ip[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET,&(ip_head->saddr),src_ip,INET_ADDRSTRLEN);
+    inet_ntop(AF_INET,&(ip_head->daddr),dst_ip,INET_ADDRSTRLEN);
 
     printf("##########     IP HEADER     ##########\n");
     printf("Source IP address           : %s\n",src_ip);
